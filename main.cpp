@@ -30,9 +30,10 @@ int main(int argc, char *argv[]) {
 	char outfile[] = "test.exe";
 	char outcmd[80];
 	snprintf(outcmd, sizeof(outcmd), "gcc -g -o %s -x assembler -", outfile);
-		
-	//FILE *target = stdout;
-	FILE *target = popen(outcmd, "w");
+	
+	FILE *target = popen(outcmd, "w");	
+	//target = stdout;
+	
 	emit(&p, target);
 	
 	fclose(target);

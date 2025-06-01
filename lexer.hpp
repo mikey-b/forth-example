@@ -7,6 +7,9 @@ enum tokenType {
 	Identifier,
 	SemiColon,
 	Colon,
+	
+	DoKw,
+	LoopKw,
 };
 
 struct Token {
