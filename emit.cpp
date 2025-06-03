@@ -97,7 +97,21 @@ static void emit(WordDefinition *self, FILE *fp) {
 				break;
 			}
 			case Identifier: {
-				if (strncmp(ins.start, "dup", 3) == 0) { // Duplicate the top value.
+				if (strncmp(ins.start, "OVER", 4) == 0) {
+					ds_pop(fp, "rax");
+					ds_pop(fp, "rbx");
+					
+					ds_push(fp, "rbx");
+					ds_push(fp, "rax");
+					ds_push(fp, "rbx");
+				} else if (strncmp(ins.start, "SWAP", 4) == 0) {
+					ds_pop(fp, "r8");
+					ds_pop(fp, "r9");
+					ds_push(fp, "r8");
+					ds_push(fp, "r9");
+				} else if (strncmp(ins.start, "DROP", 4) == 0) {
+					ds_pop(fp, "rax");
+				} else if (strncmp(ins.start, "DUP", 3) == 0) { // Duplicate the top value.
 					ds_pop(fp, "rax");
 					ds_push(fp, "rax");
 					ds_push(fp, "rax");
