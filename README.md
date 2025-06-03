@@ -6,3 +6,9 @@ g++ -O2 -std=c++20 *.cpp -o forth
 
 ./forth.exe - reads test.f and compiles to test.exe
 
+Example demonstrates
+* If
+* Loop
+* Word Definition and Calling
+* + Operator
+* . Print

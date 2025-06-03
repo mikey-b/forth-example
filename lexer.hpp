@@ -10,6 +10,9 @@ enum tokenType {
 	
 	DoKw,
 	LoopKw,
+	IfKw,
+	ThenKw,
+	ElseKw,
 };
 
 struct Token {

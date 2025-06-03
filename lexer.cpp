@@ -55,6 +55,9 @@ void Lexer::advance() {
 			
 			if (strncmp(start, "DO", 2) == 0) t = DoKw;
 			else if (strncmp(start, "LOOP", 4) == 0) t = LoopKw;
+			else if (strncmp(start, "IF", 2) == 0) t = IfKw;
+			else if (strncmp(start, "THEN", 4) == 0) t = ThenKw;
+			else if (strncmp(start, "ELSE", 4) == 0) t = ElseKw;
 			
 			front = (Token){.type = t, .start = start, .end = pos, .line = line, .col = col};
 			return;

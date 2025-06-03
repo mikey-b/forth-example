@@ -4,6 +4,7 @@
 
 int pushed_bytes = 0;
 int loop_depth = 0;
+int if_depth = 0;
 
 static void cs_push(FILE *fp, char const *from) {
 	pushed_bytes += 8;	
@@ -105,9 +106,31 @@ static void emit(WordDefinition *self, FILE *fp) {
 				}
 				break;
 			}
+			
+			case IfKw: {
+				ds_pop(fp, "r8");
+				
+				fprintf(fp, "test r8, r8\n");
+				if_depth += 1;
+				fprintf(fp, "jz 8%df\n", if_depth);
+				break;
+			}
+			case ElseKw: {
+				fprintf(fp, "jmp 7%df\n", if_depth);
+				fprintf(fp, "8%d:\n", if_depth);
+				
+				break;
+			}				
+			case ThenKw: { 
+				fprintf(fp, "7%d:\n", if_depth);
+				fprintf(fp, "8%d:\n", if_depth);				
+				if_depth -= 1;
+				break;
+			}
+			
 			case DoKw: { // Loops
 				loop_depth += 1;
-				fprintf(fp, "%d:\n", loop_depth); // We create a local label to jump back to.
+				fprintf(fp, "9%d:\n", loop_depth); // We create a local label to jump back to.
 				
 				// We move the top two stack values onto the call stack. These are the trip count and exit values.
 				ds_pop(fp, "r9");
@@ -130,7 +153,7 @@ static void emit(WordDefinition *self, FILE *fp) {
 				
 				fprintf(fp, "cmp r9, r8\n");
 				
-				fprintf(fp, "jnz %db\n", loop_depth);
+				fprintf(fp, "jnz 9%db\n", loop_depth);
 				loop_depth -= 1;
 				
 				// Throw away the trip count and exit values from the data stack.
