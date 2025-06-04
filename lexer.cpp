@@ -20,7 +20,7 @@ void Lexer::advance() {
 	for(;;) {
 		switch(*pos) {
 			case '\n': line+=1; col=0;
-			case ' ': pos+=1;
+			case '\t': case ' ': pos+=1;
 				continue;
 		}
 		break;
@@ -29,6 +29,16 @@ void Lexer::advance() {
 	switch(*pos) {
 		case '\0': {
 			front = (Token){EndOfFile};
+			return;
+		}
+		case '!': {
+			front = (Token){.type = Operator, .start = pos, .end = pos + 1, .line = line, .col = col};
+			pos += 1;
+			return;
+		}
+		case '@': {
+			front = (Token){.type = Operator, .start = pos, .end = pos + 1, .line = line, .col = col};
+			pos += 1;
 			return;
 		}
 		case ':': {
@@ -58,6 +68,7 @@ void Lexer::advance() {
 			else if (strncmp(start, "IF", 2) == 0) t = IfKw;
 			else if (strncmp(start, "THEN", 4) == 0) t = ThenKw;
 			else if (strncmp(start, "ELSE", 4) == 0) t = ElseKw;
+			else if (strncmp(start, "VAR", 3) == 0) t = VarKw;
 			
 			front = (Token){.type = t, .start = start, .end = pos, .line = line, .col = col};
 			return;

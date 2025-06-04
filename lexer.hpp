@@ -8,11 +8,15 @@ enum tokenType {
 	SemiColon,
 	Colon,
 	
+	At,
+	Bang,
+	
 	DoKw,
 	LoopKw,
 	IfKw,
 	ThenKw,
 	ElseKw,
+	VarKw,
 };
 
 struct Token {

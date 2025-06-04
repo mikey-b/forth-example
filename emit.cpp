@@ -55,12 +55,37 @@ static void emit(int self, FILE *fp) {
 	fprintf(fp, "mov QWORD PTR [r10], %d\n", self);
 }
 
+static int findTokenByText(const std::vector<Token>& tokens, const Token& t) {
+	size_t textlen = t.end - t.start;
+	
+	for(size_t i = 0; i < tokens.size(); ++i) {
+		const Token& token = tokens[i];
+		size_t tokenlen = token.end - token.start;
+		
+		if (tokenlen == textlen && std::strncmp(token.start, t.start, textlen) == 0) {
+			return static_cast<int>(i);
+		}
+	}
+	
+	return -1;
+}
+
 static void emit(WordDefinition *self, FILE *fp) {
 	fprintf(fp, "%.*s:\n", (self->name.end - self->name.start), self->name.start);
 	fprintf(fp, ".loc 1 %d\n", self->name.line);
+	
 	fprintf(fp, "push rbp\n");
 	fprintf(fp, "mov rbp, rsp\n");
-	fprintf(fp, "sub rsp, 32\n");
+	{ 	// Add locals to the stack frame
+		int pushed_bytes = (1 + self->locals.size()) * 8;
+		int align = 32 + ( (16 - (pushed_bytes % 16)) % 16 );
+		fprintf(fp, "sub rsp, %d\n", align);
+		
+		// Set all locals to zero.
+		for(size_t i = 0; i < self->locals.size(); ++i) {
+			fprintf(fp, "mov QWORD PTR [rbp + %d], 0\n", (i * 8));
+		}
+	}
 	
 	if (strncmp("main", self->name.start, 4) == 0) {
 		fprintf(fp, "lea r10, [rip + data_stack + %d]	# Set Data Stack Pointer\n", 4096);
@@ -93,6 +118,18 @@ static void emit(WordDefinition *self, FILE *fp) {
 						print(fp, ".STR0", "rdx");
 						break;
 					}
+					case '@': { // Read a memory address
+						ds_pop(fp, "rax");
+						fprintf(fp, "mov rax, QWORD PTR [rax]\n");
+						ds_push(fp, "rax");
+						break;
+					}
+					case '!': { // Write a value to memory address
+						ds_pop(fp, "rax");
+						ds_pop(fp, "rbx");
+						fprintf(fp, "mov QWORD PTR [rax], rbx\n");
+						break;
+					}
 				}
 				break;
 			}
@@ -116,7 +153,14 @@ static void emit(WordDefinition *self, FILE *fp) {
 					ds_push(fp, "rax");
 					ds_push(fp, "rax");
 				} else {
-					fprintf(fp, "call %.*s\n", (ins.end - ins.start), ins.start);
+					// Is this a variable?
+					int index = findTokenByText(self->locals, ins);
+					if (index != -1) {
+						fprintf(fp, "lea rax, [rbp - %d]\n", (index * 8));
+						ds_push(fp, "rax");
+					} else {					
+						fprintf(fp, "call %.*s\n", (ins.end - ins.start), ins.start);
+					}
 				}
 				break;
 			}
@@ -132,7 +176,6 @@ static void emit(WordDefinition *self, FILE *fp) {
 			case ElseKw: {
 				fprintf(fp, "jmp 7%df\n", if_depth);
 				fprintf(fp, "8%d:\n", if_depth);
-				
 				break;
 			}				
 			case ThenKw: { 
@@ -187,7 +230,12 @@ static void emit(WordDefinition *self, FILE *fp) {
 		ds_pop(fp, "rax");
 	}
 	
-	fprintf(fp, "add rsp, 32\n");
+	{ // Remove stack allocated for locals.
+		int pushed_bytes = (1 + self->locals.size()) * 8;
+		int align = 32 + ( (16 - (pushed_bytes % 16)) % 16 );
+		fprintf(fp, "add rsp, %d\n", align);
+	}
+	
 	fprintf(fp, "pop rbp\n");
 	fprintf(fp, "ret\n");
 }

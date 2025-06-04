@@ -7,6 +7,7 @@
 struct WordDefinition {
 	Token name;
 	std::vector<Token> body;
+	std::vector<Token> locals;
 	
 	WordDefinition(Lexer &l) {
 		assert(l.front.type == Identifier);
@@ -14,7 +15,13 @@ struct WordDefinition {
 
 		l.advance();
 		while ((l.front.type != SemiColon) && (l.front.type != EndOfFile)) {
-			body.push_back(l.front);
+			if (l.front.type == VarKw) {
+				l.advance();
+				assert(l.front.type == Identifier);
+				locals.push_back(l.front);
+			} else {
+				body.push_back(l.front);
+			}
 			l.advance();
 		}
 		assert(l.front.type == SemiColon);
