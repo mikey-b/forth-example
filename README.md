@@ -3,12 +3,18 @@
 Code example to compile a small subset of Forth code.
 
 g++ -O2 -std=c++20 *.cpp -o forth
+(Makefile also provided)
 
-./forth.exe - reads test.f and compiles to test.exe
+Read <input> and produces a binary at <output>
+./forth.exe <input> <output>
+
+Read <input> and produce asssembly to stdout
+./forth.exe <input> - 
 
 Example demonstrates
 * If
 * Loop
 * Word Definition and Calling
-* + Operator
-* . Print
+* Local Variables
+* + - * / % Operators
+* . Print Integer
