@@ -9,11 +9,11 @@ g++ -O2 -std=c++20 *.cpp -o forth
 ```
 (Makefile also provided)
 
-Read <input> and produces a binary at <output>
+Read `input` and produces a binary to `output`
 ```
 ./forth.exe <input> <output>
 ```
-Read <input> and produce asssembly to stdout
+Read `input` and produce asssembly to stdout
 ```
 ./forth.exe <input> -
 ```
