@@ -1,10 +1,11 @@
 #include "parser.hpp"
 #include <cstdio>
 #include <cstring>
+#include <cstdint>
 
-int pushed_bytes = 0;
-int loop_depth = 0;
-int if_depth = 0;
+static int pushed_bytes = 0;
+static int loop_depth = 0;
+static int if_depth = 0;
 
 static void cs_push(FILE *fp, char const *from) {
 	pushed_bytes += 8;	
@@ -19,7 +20,7 @@ static void cs_pop(FILE *fp, char const *to) {
 static void print(FILE *fp, char const *msg, char const *reg) {
 	cs_push(fp, "r8");
 	cs_push(fp, "r9");
-	cs_push(fp, "r10");	
+	cs_push(fp, "r10");
 	int align = 32 + ( (16 - (pushed_bytes % 16)) % 16 );
 	fprintf(fp, "sub rsp, %d\n", align);
 	fprintf(fp, "lea rcx, %s[rip]\n", msg);
@@ -39,20 +40,11 @@ static void ds_push(FILE *f, int v) {
 static void ds_push(FILE *fp, char const *from) {
 	fprintf(fp, "sub r10, 8\n");
 	fprintf(fp, "mov QWORD PTR [r10], %s\n", from);
-	
-	//print(fp, ".STR1", from);
 }
 
 static void ds_pop(FILE *fp, char const *to) {
 	fprintf(fp, "mov %s,QWORD PTR [r10]\n", to);
 	fprintf(fp, "add r10, 8\n");
-	
-	//print(fp, ".STR2", to);
-}
-
-static void emit(int self, FILE *fp) {
-	fprintf(fp, "sub r10, 8\n");
-	fprintf(fp, "mov QWORD PTR [r10], %d\n", self);
 }
 
 static int findTokenByText(const std::vector<Token>& tokens, const Token& t) {
@@ -66,24 +58,25 @@ static int findTokenByText(const std::vector<Token>& tokens, const Token& t) {
 			return static_cast<int>(i);
 		}
 	}
-	
+
 	return -1;
 }
 
 static void emit(WordDefinition *self, FILE *fp) {
-	fprintf(fp, "%.*s:\n", (self->name.end - self->name.start), self->name.start);
+	fprintf(fp, "%.*s:\n", (int)(self->name.end - self->name.start), self->name.start);
 	fprintf(fp, ".loc 1 %d\n", self->name.line);
 	
 	fprintf(fp, "push rbp\n");
 	fprintf(fp, "mov rbp, rsp\n");
-	{ 	// Add locals to the stack frame
+	{ 	// Add locals to the stack frame 1 = rbp + locals * 8 bytes.
 		int pushed_bytes = (1 + self->locals.size()) * 8;
-		int align = 32 + ( (16 - (pushed_bytes % 16)) % 16 );
-		fprintf(fp, "sub rsp, %d\n", align);
+		int padding = 32 + ( (16 - (pushed_bytes % 16)) % 16 );
+		fprintf(fp, "sub rsp, %d\n", pushed_bytes + padding);
 		
 		// Set all locals to zero.
 		for(size_t i = 0; i < self->locals.size(); ++i) {
-			fprintf(fp, "mov QWORD PTR [rbp + %d], 0\n", (i * 8));
+			int32_t displacement = ((i + 1) * 8);
+			fprintf(fp, "mov QWORD PTR [rbp - %d], 0\n", displacement);
 		}
 	}
 	
@@ -113,6 +106,36 @@ static void emit(WordDefinition *self, FILE *fp) {
 						ds_push(fp, "rax");						
 						break;
 					}
+					case '-': { // Subtract top two values
+						ds_pop(fp, "rbx");
+						ds_pop(fp, "rax");
+						fprintf(fp, "sub rax, rbx\n");
+						ds_push(fp, "rax");
+						break;
+					}
+					case '*': {
+						ds_pop(fp, "rbx");
+						ds_pop(fp, "rax");
+						fprintf(fp, "imul rax, rbx\n");
+						ds_push(fp, "rax");
+						break;
+					}
+					case '/': {
+						ds_pop(fp, "rbx");
+						ds_pop(fp, "rax");
+						fprintf(fp, "cqo\n");
+						fprintf(fp, "idiv rax, rbx\n");
+						ds_push(fp, "rax");
+						break;
+					}
+					case '%': {
+						ds_pop(fp, "rbx");
+						ds_pop(fp, "rax");
+						fprintf(fp, "cqo\n");
+						fprintf(fp, "idiv rax, rbx\n");
+						ds_push(fp, "rdx");
+						break;
+					}					
 					case '.': { // Print the top of the stack value.
 						ds_pop(fp, "rdx");
 						print(fp, ".STR0", "rdx");
@@ -156,10 +179,10 @@ static void emit(WordDefinition *self, FILE *fp) {
 					// Is this a variable?
 					int index = findTokenByText(self->locals, ins);
 					if (index != -1) {
-						fprintf(fp, "lea rax, [rbp - %d]\n", (index * 8));
+						fprintf(fp, "lea rax, [rbp - %d]\n", ((index + 1) * 8));
 						ds_push(fp, "rax");
 					} else {					
-						fprintf(fp, "call %.*s\n", (ins.end - ins.start), ins.start);
+						fprintf(fp, "call %.*s\n", (int)(ins.end - ins.start), ins.start);
 					}
 				}
 				break;
@@ -220,7 +243,7 @@ static void emit(WordDefinition *self, FILE *fp) {
 			}
 			
 			default: {
-				printf("Unknown token %d '%.*s'\n", ins.type, (ins.end - ins.start), ins.start);
+				printf("Unknown token %d '%.*s'\n", ins.type, (int)(ins.end - ins.start), ins.start);
 				assert(0);
 			}
 		}
@@ -230,12 +253,7 @@ static void emit(WordDefinition *self, FILE *fp) {
 		ds_pop(fp, "rax");
 	}
 	
-	{ // Remove stack allocated for locals.
-		int pushed_bytes = (1 + self->locals.size()) * 8;
-		int align = 32 + ( (16 - (pushed_bytes % 16)) % 16 );
-		fprintf(fp, "add rsp, %d\n", align);
-	}
-	
+	fprintf(fp, "mov rsp, rbp\n");
 	fprintf(fp, "pop rbp\n");
 	fprintf(fp, "ret\n");
 }
@@ -245,17 +263,19 @@ void emit(Parser *self, FILE *fp) {
 	fprintf(fp, ".file 1 \"%s\"\n", self->name);
 	
 	fprintf(fp, ".section .bss\n");
-	fprintf(fp, ".lcomm data_stack, %d\n", 4096);
+	fprintf(fp, ".globl data_stack\n");
+	fprintf(fp, "data_stack: .space %d\n", 4096);
 		
 	fprintf(fp, ".section .rodata\n");
-	fprintf(fp, ".STR0: .asciz \"%%d \"\n");	
-	fprintf(fp, ".STR1: .asciz \"Pushing: %%d \\n\"\n");
-	fprintf(fp, ".STR2: .asciz \"Popping: %%d \\n\"\n");
+	fprintf(fp, ".STR0: .asciz \"%%d \"\n");
 	
 	fprintf(fp, ".text\n");
+	fprintf(fp, ".Ltext_start:\n"); // DEBUG LABEL
 	fprintf(fp, ".globl main\n");
 	
 	for(auto& word: self->words) {
 		emit(&word, fp);
 	}
+	
+	fprintf(fp, ".Ltext_end:\n"); // DEBUG LABEL
 }

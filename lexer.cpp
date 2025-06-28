@@ -19,7 +19,7 @@ static bool isalnum(char c) {
 void Lexer::advance() {
 	for(;;) {
 		switch(*pos) {
-			case '\n': line+=1; col=0;
+			case '\n': line+=1; col=0; [[fallthrough]];
 			case '\t': case ' ': pos+=1;
 				continue;
 		}
@@ -28,17 +28,7 @@ void Lexer::advance() {
 	
 	switch(*pos) {
 		case '\0': {
-			front = (Token){EndOfFile};
-			return;
-		}
-		case '!': {
-			front = (Token){.type = Operator, .start = pos, .end = pos + 1, .line = line, .col = col};
-			pos += 1;
-			return;
-		}
-		case '@': {
-			front = (Token){.type = Operator, .start = pos, .end = pos + 1, .line = line, .col = col};
-			pos += 1;
+			front = (Token){.type = EndOfFile, .start = pos, .end = pos, .line = line, .col = col};
 			return;
 		}
 		case ':': {
@@ -73,12 +63,7 @@ void Lexer::advance() {
 			front = (Token){.type = t, .start = start, .end = pos, .line = line, .col = col};
 			return;
 		}
-		case '+': {
-			front = (Token){.type = Operator, .start = pos, .end = pos + 1, .line = line, .col = col};
-			pos+=1;
-			return;
-		}
-		case '.': {
+		case '+': case '-': case '*': case '/': case '%': case '.': case '@': case '!': {
 			front = (Token){.type = Operator, .start = pos, .end = pos + 1, .line = line, .col = col};
 			pos+=1;
 			return;
